@@ -397,7 +397,7 @@
 
         function initSocket() {
             if (typeof io !== 'undefined') {
-                state.socket = io();
+                state.socket = io('https://wishperly.onrender.com');
                 
                 state.socket.on('match-found', ({ peers }) => {
                     const partner = peers.find(p => p.identity !== state.userIdentity);
