@@ -1,0 +1,523 @@
+```html
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Whisperly — Different People. Same Sky.</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        midnight: '#090B18',
+                        darkcard: '#12182A',
+                        moonwhite: '#F8F9FF',
+                        roseglow: '#FF8FB1',
+                        lavender: '#B794F6',
+                        softgold: '#E8D7A7',
+                        cardborder: 'rgba(183, 148, 246, 0.15)',
+                    },
+                    fontFamily: {
+                        serif: ['Cormorant Garamond', 'Georgia', 'serif'],
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    animation: {
+                        'pulse-glow': 'pulseGlow 4s ease-in-out infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'spin-slow': 'spin 20s linear infinite',
+                    },
+                    keyframes: {
+                        pulseGlow: {
+                            '0%, 100%': { opacity: '0.4', transform: 'scale(1)' },
+                            '50%': { opacity: '0.8', transform: 'scale(1.05)' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Socket.io Client -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <!-- Custom CSS Token & Glassmorphism styles -->
+    <style>
+        body {
+            background-color: #090B18;
+            color: #F8F9FF;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            min-height: 100vh;
+            min-height: 100dvh;
+            overscroll-behavior-y: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body.app-mode {
+            position: fixed;
+            width: 100vw;
+            height: 100dvh;
+            overflow: hidden;
+        }
+
+        .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 12px); }
+
+        h1, h2, h3, .font-heading {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+        }
+
+        .glass-panel {
+            background: rgba(18, 24, 42, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(183, 148, 246, 0.18);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-panel-glow {
+            background: rgba(18, 24, 42, 0.75);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 143, 177, 0.25);
+            box-shadow: 0 0 25px rgba(255, 143, 177, 0.12);
+        }
+
+        .glass-input {
+            background: rgba(9, 11, 24, 0.7);
+            border: 1px solid rgba(183, 148, 246, 0.25);
+            color: #F8F9FF;
+        }
+
+        .glass-input:focus {
+            border-color: #FF8FB1;
+            box-shadow: 0 0 15px rgba(255, 143, 177, 0.2);
+            outline: none;
+        }
+
+        .chat-scroll-area {
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(183, 148, 246, 0.3) transparent;
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(183, 148, 246, 0.3);
+            border-radius: 4px;
+        }
+
+        .text-gradient-celestial {
+            background: linear-gradient(135deg, #F8F9FF 0%, #B794F6 50%, #FF8FB1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .text-gradient-gold {
+            background: linear-gradient(135deg, #F8F9FF 0%, #E8D7A7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #star-canvas {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 0;
+        }
+
+        .ambient-rose-glow {
+            position: absolute; width: 350px; height: 350px;
+            background: radial-gradient(circle, rgba(255, 143, 177, 0.15) 0%, rgba(9, 11, 24, 0) 70%);
+            pointer-events: none; border-radius: 50%;
+        }
+
+        .ambient-lavender-glow {
+            position: absolute; width: 450px; height: 450px;
+            background: radial-gradient(circle, rgba(183, 148, 246, 0.12) 0%, rgba(9, 11, 24, 0) 70%);
+            pointer-events: none; border-radius: 50%;
+        }
+
+        .bubble-user {
+            background: linear-gradient(135deg, rgba(255, 143, 177, 0.25) 0%, rgba(18, 24, 42, 0.9) 100%);
+            border: 1px solid rgba(255, 143, 177, 0.3);
+            color: #F8F9FF; border-top-right-radius: 2px;
+        }
+
+        .bubble-partner {
+            background: linear-gradient(135deg, rgba(183, 148, 246, 0.25) 0%, rgba(18, 24, 42, 0.9) 100%);
+            border: 1px solid rgba(183, 148, 246, 0.3);
+            color: #F8F9FF; border-top-left-radius: 2px;
+        }
+    </style>
+</head>
+<body class="relative flex flex-col min-h-screen selection:bg-roseglow selection:text-midnight">
+
+    <canvas id="star-canvas"></canvas>
+
+    <div class="ambient-rose-glow top-10 -left-20 animate-pulse-glow"></div>
+    <div class="ambient-lavender-glow bottom-20 -right-20 animate-pulse-glow" style="animation-delay: 2s;"></div>
+
+    <!-- MAIN NAVIGATION -->
+    <header id="main-app-header" class="relative z-20 w-full border-b border-white/5 bg-midnight/80 backdrop-blur-md">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
+            <a href="#" onclick="showView('landing')" class="flex items-center space-x-3 group cursor-pointer">
+                <div class="relative w-10 h-10 flex items-center justify-center rounded-xl bg-darkcard border border-lavender/20 group-hover:border-roseglow/40 transition-all duration-300 shadow-lg">
+                    <svg class="w-6 h-6 text-roseglow transform group-hover:rotate-12 transition-transform duration-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="url(#moon-grad)"/>
+                        <path d="M8 11L9.5 14L11 11.5L12.5 14L14 11" stroke="#F8F9FF" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+                        <defs>
+                            <linearGradient id="moon-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#FF8FB1"/>
+                                <stop offset="100%" stop-color="#B794F6"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <div class="flex flex-col">
+                    <span class="font-heading text-2xl tracking-wider font-semibold text-moonwhite group-hover:text-roseglow transition-colors">WHISPERLY</span>
+                    <span class="text-[9px] tracking-[0.25em] text-lavender/70 uppercase">Same Sky</span>
+                </div>
+            </a>
+
+            <div class="flex items-center space-x-3">
+                <button id="nav-action-btn" onclick="openInviteModal()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-roseglow to-lavender text-midnight font-medium text-sm hover:opacity-90 hover:shadow-[0_0_20px_rgba(255,143,177,0.4)] transition-all duration-300 flex items-center space-x-2">
+                    <i class="fa-solid fa-key text-xs"></i>
+                    <span>Enter with Invite</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="relative z-10 flex-grow flex flex-col justify-center items-center px-4 py-8">
+
+        <!-- LANDING VIEW -->
+        <section id="view-landing" class="w-full max-w-5xl mx-auto flex flex-col items-center text-center py-12 space-y-20">
+            <div class="space-y-8 max-w-3xl animate-float">
+                <div class="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full glass-panel border border-roseglow/30 text-xs text-roseglow">
+                    <span class="w-2 h-2 rounded-full bg-roseglow animate-ping"></span>
+                    <span class="tracking-widest uppercase font-mono">Invite-Only • Private Sandbox</span>
+                </div>
+
+                <h1 class="text-5xl sm:text-7xl font-semibold tracking-tight text-gradient-celestial leading-[1.15]">
+                    Different People.<br>
+                    <span class="font-normal italic text-gradient-gold">Same Sky.</span>
+                </h1>
+
+                <p class="text-lg sm:text-xl text-moonwhite/70 max-w-2xl mx-auto font-light leading-relaxed">
+                    Meet someone you’ve never known. Share a conversation you’ll never have to keep. Whispers under the quiet dark sky.
+                </p>
+
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+                    <button onclick="openInviteModal()" class="w-full sm:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-roseglow via-lavender to-softgold text-midnight font-semibold text-base hover:shadow-[0_0_30px_rgba(255,143,177,0.5)] transition-all transform hover:-translate-y-0.5 active:translate-y-0">
+                        Enter with Invite
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- INVITE MODAL -->
+        <div id="modal-invite" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-midnight/90 backdrop-blur-xl hidden">
+            <div class="glass-panel-glow w-full max-w-md p-8 rounded-3xl space-y-6 relative border border-roseglow/30 animate-float">
+                <button onclick="closeInviteModal()" class="absolute top-5 right-5 text-moonwhite/50 hover:text-moonwhite text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+
+                <div class="text-center space-y-2">
+                    <div class="w-12 h-12 rounded-2xl bg-roseglow/10 text-roseglow mx-auto flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-key"></i>
+                    </div>
+                    <h3 class="text-2xl font-semibold font-heading text-moonwhite">Whisperly Access Key</h3>
+                    <p class="text-xs text-moonwhite/60">Enter your invitation token to step beneath the night sky.</p>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <input type="text" id="invite-input" placeholder="e.g. WHISPER-LUNA-2026" class="w-full px-4 py-3 rounded-xl glass-input text-center tracking-widest font-mono text-sm focus:ring-1 focus:ring-roseglow">
+                    </div>
+
+                    <button onclick="validateInviteToken()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-roseglow to-lavender text-midnight font-semibold text-sm hover:shadow-[0_0_20px_rgba(255,143,177,0.4)] transition-all">
+                        Validate & Step Inside
+                    </button>
+
+                    <div class="pt-4 border-t border-white/10 text-center space-y-2">
+                        <p class="text-[11px] text-moonwhite/50">Quick demo tokens:</p>
+                        <div class="flex items-center justify-center space-x-2">
+                            <button onclick="useDemoToken('WHISPER-LUNA-2026')" class="px-2.5 py-1 bg-white/5 hover:bg-white/10 rounded border border-white/10 text-[11px] font-mono text-lavender">
+                                WHISPER-LUNA-2026
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WAITING VIEW -->
+        <section id="view-waiting" class="w-full max-w-xl mx-auto flex flex-col items-center text-center py-12 space-y-10 hidden">
+            <div class="relative w-48 h-48 flex items-center justify-center">
+                <div class="absolute inset-0 rounded-full border border-lavender/20 animate-spin-slow"></div>
+                <div class="absolute inset-4 rounded-full border border-roseglow/20 animate-ping"></div>
+                <div class="absolute inset-10 rounded-full bg-darkcard/80 backdrop-blur-md border border-roseglow/40 flex items-center justify-center shadow-[0_0_30px_rgba(255,143,177,0.2)]">
+                    <i class="fa-solid fa-moon text-4xl text-roseglow animate-pulse"></i>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <span class="text-xs font-mono tracking-widest text-roseglow uppercase">MATCHMAKING ACTIVE</span>
+                <h2 class="text-3xl font-heading font-semibold text-gradient-celestial">
+                    Looking beneath the same sky…
+                </h2>
+            </div>
+
+            <div class="glass-panel px-6 py-4 rounded-2xl flex items-center space-x-4 border border-lavender/30">
+                <div class="text-left">
+                    <p class="text-[11px] text-moonwhite/50 uppercase font-mono">Your Moniker</p>
+                    <p id="assigned-identity-name" class="font-heading text-xl font-semibold text-roseglow">Assigning…</p>
+                </div>
+            </div>
+
+            <button onclick="cancelWaiting()" class="text-xs text-moonwhite/50 hover:text-roseglow">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Cancel
+            </button>
+        </section>
+
+        <!-- CHAT VIEW -->
+        <section id="view-chat" class="fixed inset-0 z-40 w-full h-[100dvh] flex flex-col bg-midnight hidden">
+            <div class="shrink-0 w-full bg-darkcard/90 backdrop-blur-xl border-b border-white/10 px-4 py-3 pt-safe flex items-center justify-between shadow-lg">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-roseglow/30 to-lavender/30 flex items-center justify-center border border-roseglow/40">
+                        <i class="fa-solid fa-moon text-roseglow"></i>
+                    </div>
+                    <div>
+                        <span id="chat-partner-name" class="font-heading text-xl font-semibold text-moonwhite">Orion</span>
+                        <div class="text-[10px] font-mono text-emerald-400">E2EE • Active Session</div>
+                    </div>
+                </div>
+
+                <button onclick="terminateChatSession()" class="px-3 py-1.5 rounded-full bg-roseglow/20 text-roseglow border border-roseglow/30 text-xs">
+                    Leave
+                </button>
+            </div>
+
+            <div id="chat-messages-container" class="flex-grow px-4 py-4 overflow-y-auto space-y-4 chat-scroll-area"></div>
+
+            <div id="typing-indicator" class="px-5 py-1 bg-darkcard/80 text-xs italic text-lavender shrink-0 hidden">
+                <span id="typing-partner-name">Peer</span> is typing…
+            </div>
+
+            <div class="shrink-0 w-full bg-darkcard/95 border-t border-white/10 px-3 py-2.5 pb-safe flex items-center space-x-2">
+                <input type="text" id="chat-input" onkeydown="handleChatKeyPress(event)" placeholder="Write a thought…" class="flex-grow px-4 py-3 rounded-full glass-input text-sm">
+                <button onclick="sendChatMessage()" class="w-11 h-11 rounded-full bg-gradient-to-r from-roseglow to-lavender text-midnight font-semibold flex items-center justify-center">
+                    <i class="fa-solid fa-paper-plane text-sm"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- CHAT END VIEW -->
+        <section id="view-chat-end" class="w-full max-w-md mx-auto flex flex-col items-center text-center py-16 space-y-8 hidden">
+            <div class="space-y-3">
+                <h2 class="text-4xl font-heading font-semibold text-gradient-celestial">
+                    The sky grew quiet.
+                </h2>
+                <p class="text-sm text-moonwhite/60">The session has ended and keys have been scrubbed from memory.</p>
+            </div>
+            <button onclick="enterWaitingRoom()" class="px-6 py-3.5 rounded-xl bg-gradient-to-r from-roseglow to-lavender text-midnight font-semibold text-sm">
+                Look for Another Star
+            </button>
+        </section>
+
+    </main>
+
+    <script>
+        const state = {
+            currentView: 'landing',
+            userIdentity: null,
+            partnerIdentity: null,
+            socket: null
+        };
+
+        const CANDIDATE_NAMES = ['Nova', 'Orion', 'Luna', 'Lyra', 'Vega', 'Atlas', 'Astra', 'Sol'];
+        const BOT_SCRIPT = [
+            "Under this starry sky, words feel a little gentler, don't they?",
+            "What's something on your mind tonight that you rarely tell anyone?",
+            "The quiet of the night always brings out the honest thoughts."
+        ];
+        let botIdx = 0;
+
+        function initStarCanvas() {
+            const canvas = document.getElementById('star-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            let width = canvas.width = window.innerWidth;
+            let height = canvas.height = window.innerHeight;
+
+            window.addEventListener('resize', () => {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+            });
+
+            const stars = Array.from({ length: 70 }, () => ({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                radius: Math.random() * 1.5,
+                alpha: Math.random(),
+                speed: Math.random() * 0.01 + 0.005
+            }));
+
+            function animate() {
+                ctx.clearRect(0, 0, width, height);
+                stars.forEach(star => {
+                    star.alpha += star.speed;
+                    if (star.alpha > 1 || star.alpha < 0) star.speed = -star.speed;
+                    ctx.beginPath();
+                    ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(248, 249, 255, ${Math.abs(star.alpha)})`;
+                    ctx.fill();
+                });
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        function initSocket() {
+            if (typeof io !== 'undefined') {
+                state.socket = io();
+                
+                state.socket.on('match-found', ({ peers }) => {
+                    const partner = peers.find(p => p.identity !== state.userIdentity);
+                    state.partnerIdentity = partner ? partner.identity : 'Star';
+                    startChatSession();
+                });
+
+                state.socket.on('receive-encrypted-payload', (data) => {
+                    renderMessage({
+                        sender: data.sender || state.partnerIdentity,
+                        isUser: false,
+                        text: data.text,
+                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    });
+                });
+
+                state.socket.on('peer-left', () => {
+                    terminateChatSession();
+                });
+            }
+        }
+
+        function showView(viewId) {
+            ['landing', 'waiting', 'chat', 'chat-end'].forEach(id => {
+                const el = document.getElementById(`view-${id}`);
+                if (el) el.classList.toggle('hidden', id !== viewId);
+            });
+            state.currentView = viewId;
+            document.body.classList.toggle('app-mode', viewId === 'chat' || viewId === 'waiting');
+        }
+
+        function openInviteModal() { document.getElementById('modal-invite').classList.remove('hidden'); }
+        function closeInviteModal() { document.getElementById('modal-invite').classList.add('hidden'); }
+        function useDemoToken(t) { document.getElementById('invite-input').value = t; validateInviteToken(); }
+
+        function validateInviteToken() {
+            closeInviteModal();
+            enterWaitingRoom();
+        }
+
+        function enterWaitingRoom() {
+            showView('waiting');
+            const names = [...CANDIDATE_NAMES].sort(() => 0.5 - Math.random());
+            state.userIdentity = names[0];
+            document.getElementById('assigned-identity-name').innerText = state.userIdentity;
+
+            if (state.socket) {
+                state.socket.emit('join-waiting-room', { identity: state.userIdentity });
+            }
+
+            // Fallback bot simulation if no peer connects in 4 seconds
+            setTimeout(() => {
+                if (state.currentView === 'waiting') {
+                    state.partnerIdentity = names[1];
+                    startChatSession();
+                }
+            }, 4000);
+        }
+
+        function cancelWaiting() { showView('landing'); }
+
+        function startChatSession() {
+            showView('chat');
+            document.getElementById('chat-partner-name').innerText = state.partnerIdentity;
+            const container = document.getElementById('chat-messages-container');
+            container.innerHTML = `
+                <div class="text-center py-6">
+                    <span class="text-[11px] font-mono tracking-widest text-lavender uppercase bg-lavender/10 px-3 py-1 rounded-full">
+                        Session Established
+                    </span>
+                </div>
+            `;
+
+            setTimeout(() => {
+                if (botIdx < BOT_SCRIPT.length) {
+                    renderMessage({ sender: state.partnerIdentity, isUser: false, text: BOT_SCRIPT[botIdx++], time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
+                }
+            }, 1500);
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+            input.value = '';
+
+            renderMessage({
+                sender: state.userIdentity,
+                isUser: true,
+                text: text,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            });
+
+            if (state.socket) {
+                state.socket.emit('send-encrypted-payload', { text, sender: state.userIdentity });
+            }
+        }
+
+        function handleChatKeyPress(e) { if (e.key === 'Enter') sendChatMessage(); }
+
+        function renderMessage(msg) {
+            const container = document.getElementById('chat-messages-container');
+            const div = document.createElement('div');
+            div.className = `flex flex-col ${msg.isUser ? 'items-end' : 'items-start'} space-y-1`;
+            div.innerHTML = `
+                <span class="text-[10px] font-mono ${msg.isUser ? 'text-roseglow' : 'text-lavender'}">${msg.sender}</span>
+                <div class="max-w-[80%] px-4 py-3 rounded-2xl ${msg.isUser ? 'bubble-user' : 'bubble-partner'} text-sm">${msg.text}</div>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function terminateChatSession() { showView('chat-end'); }
+
+        window.onload = function () {
+            initStarCanvas();
+            initSocket();
+            showView('landing');
+        };
+    </script>
+</body>
+</html>
+```
